@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,13 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model for authentication (Admin)
+// User model
 model User {
   id       Int    @id @default(autoincrement())
   email    String @unique
   password String
   role     String // 'Admin' or 'User'
-  //createdAt DateTime @default(now())
 }
 
 // Student model
@@ -23,42 +20,33 @@ model Student {
   id          Int          @id @default(autoincrement())
   name        String
   admissionNo String       @unique
-  totalFees   Float
   paidFees    Float        @default(0)
+  totalFees   Float        @default(0)
   balance     Float        @default(0)
-  status      String // 'Paid', 'Partially Paid', 'Unpaid'
-  dateOfBirth DateTime? // Optional date of birth field
-  parentName  String? // Optional parent name field
+  status      String       // 'Paid', 'Partially Paid', 'Unpaid'
+  dateOfBirth DateTime?
+  parentName  String?
   classId     Int?
-  class       Class?       @relation("ClassStudents", fields: [classId], references: [id])
+  class       Class?       @relation(fields: [classId], references: [id])
   payments    Payment[]
-  fees        Fee[]        @relation("StudentFees") // Add this relation
   feePayments FeePayment[]
   receipt     Receipt[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-}
-
-// Fee model
-model Fee {
-  id        Int       @id @default(autoincrement())
-  amount    Float
-  feeType   String
-  classId   Int?
-  class     Class?    @relation(fields: [classId], references: [id])
-  students  Student[] @relation("StudentFees") // Add this relation
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  deletedAt   DateTime?    // For soft delete
 }
 
 // Class model
 model Class {
-  id        Int       @id @default(autoincrement())
-  name      String
-  students  Student[] @relation("ClassStudents")
-  fees      Fee[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  students     Student[]
+  feeStructure FeeStructure? // Relation to FeeStructure (defined on FeeStructure)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?     // For soft delete
+
+  @@map("classes")
 }
 
 // Payment model
@@ -73,18 +61,20 @@ model Payment {
   createdAt     DateTime @default(now())
 }
 
+// Receipt model
 model Receipt {
   id            Int          @id @default(autoincrement())
-  studentId     Int // Reference to the Student
+  studentId     Int
   student       Student      @relation(fields: [studentId], references: [id])
-  totalAmount   Float // Total amount for this receipt
-  paymentDate   DateTime // Date of payment
-  paymentMethod String // e.g., Cash, Card, UPI
-  feePayments   FeePayment[] // Associated monthly payments
+  totalAmount   Float
+  paymentDate   DateTime
+  paymentMethod String
+  feePayments   FeePayment[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 }
 
+// FeePayment model
 model FeePayment {
   id          Int       @id @default(autoincrement())
   receiptId   Int
@@ -94,20 +84,34 @@ model FeePayment {
   month       String
   amount      Float
   finalAmount Float     @default(0)
-  discountId  Int? // Foreign key for Discount
-  discount    Discount? @relation(fields: [discountId], references: [id]) // Single Discount relation
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  discountId  Int?
+  discount    Discount? @relation(fields: [discountId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
+// Discount model
 model Discount {
   id          Int          @id @default(autoincrement())
-  type        String // 'flat', 'percentage'
-  amount      Float // Discount amount or percentage
-  description String // Reason for discount
-  condition   String? // Optional condition for applying discount
-  feePayments FeePayment[] // Bi-directional relation with FeePayment
-  createdAt DateTime @default(now())
-  updatedAt   DateTime  @updatedAt
+  type        String
+  amount      Float
+  description String
+  condition   String?
+  feePayments FeePayment[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+// FeeStructure model
+model FeeStructure {
+  id         Int      @id @default(autoincrement())
+  classId    Int      @unique
+  totalFees  Float    @default(0.0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+  class      Class    @relation(fields: [classId], references: [id]) // Defined here only
+
+  @@map("fee_structures")
 }

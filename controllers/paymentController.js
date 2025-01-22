@@ -15,24 +15,37 @@ const getPaymentHistory = async (req, res) => {
       return res.status(400).json({ error: "Student ID is required." });
     }
 
+    // Fetch student details first
+    const studentDetails = await prisma.student.findUnique({
+      where: { id: parseInt(studentId) },
+    });
+
+    // If student not found, return an error
+    if (!studentDetails) {
+      return res.status(404).json({ error: "Student not found." });
+    }
+
     // Fetch payment history from the database
     const payments = await prisma.feePayment.findMany({
       where: { studentId: parseInt(studentId) },
     });
 
-    // If no payments found, return a message
+    // payment history if not found
     if (payments.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No payment history found for the student." });
+      return res.status(200).json({
+        message: "No payment history found for the student.",
+        studentDetails,
+      });
     }
 
-    // Send payment history
-    res.status(200).json({ payments });
+    // Send payment history and student details
+    res.status(200).json({ payments, studentDetails });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: "Internal Server Error." });
   }
 };
+
 const generateReceiptPDF = (paymentDetails) => {
   return new Promise((resolve, reject) => {
     const {
@@ -311,7 +324,7 @@ const getTodayTotalPaymentHistory = async (req, res) => {
 
     // If no payments found, return a message
     if (payments.length === 0) {
-      return res.status(404).json({ message: "No payments found for today." });
+      return res.status(200).json({ message: "No payments found for today." });
     }
 
     // Calculate total payment amount for today

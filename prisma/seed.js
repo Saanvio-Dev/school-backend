@@ -1,69 +1,53 @@
-// prisma/seed.ts
-
-import { PrismaClient } from '@prisma/client';
-
-
+const bcrypt = require('bcrypt');
+const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-async function seed() {
-  try {
-    // Creating a student
-    const student = await prisma.student.create({
+async function main() {
+  const users = [
+    {
+      email: 'admin@example.com',
+      password: 'adminpassword', // Use a simple password, which will be hashed
+      role: 'Admin',
+    },
+    {
+      email: 'user@example.com',
+      password: 'userpassword', // Use a simple password, which will be hashed
+      role: 'User',
+    },
+  ];
+
+  for (let userData of users) {
+    const { email, password, role } = userData;
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+    if (existingUser) {
+      console.log(`User with email ${email} already exists`);
+      continue; // Skip this user if it already exists
+    }
+
+    // Hash the password before saving it to the database
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create the user
+    const user = await prisma.user.create({
       data: {
-        name: "John Doe",
-        admissionNo: "12345",
-        totalFees: 5000,
-        paidFees: 0,
-        balance: 5000,
-        status: "Unpaid",
-        dateOfBirth: new Date("2000-01-01"),
-        parentName: "Jane Doe",
+        email,
+        password: hashedPassword,
+        role,
       },
     });
 
-    // Creating a receipt for a student (example)
-    const receipt = await prisma.receipt.create({
-      data: {
-        studentId: student.id,
-        totalAmount: 2000,
-        paymentDate: new Date(),
-        paymentMethod: "Online",
-      },
-    });
-
-    // Inserting fee payments
-    const feePayments = [
-      { month: "January", amount: 500 },
-      { month: "February", amount: 500 },
-      { month: "March", amount: 1000 },
-    ];
-
-    const feePaymentData = feePayments.map((fee) => ({
-      receiptId: receipt.id,
-      studentId: student.id,
-      month: fee.month,
-      amount: fee.amount,
-    }));
-
-    await prisma.feePayment.createMany({
-      data: feePaymentData,
-    });
-
-    // Update student balance after payment
-    const updatedStudent = await prisma.student.update({
-      where: { id: student.id },
-      data: {
-        paidFees: 2000,
-        balance: student.totalFees - 2000,
-      },
-    });
-
-    console.log("Data seeded successfully", updatedStudent);
-  } catch (error) {
-    console.error("Error seeding data:", error);
-  } finally {
-    await prisma.$disconnect();
+    console.log(`Created user: ${user.email}`);
   }
 }
 
-seed();
+main()
+  .catch((e) => {
+    console.error(e);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
